@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UPI Scam Awareness Assistant</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div>
+    <div class="brand">UPI Scam Awareness Assistant</div>
+    <div class="tagline">Before You Pay, Understand the Warning Signs.</div>
+  </div>
+  <span class="badge">CYBERSECURITY</span>
+</header>
+
+<main class="container">
+  <section class="hero">
+    <div>
+      <p class="eyebrow">AI-POWERED AWARENESS</p>
+      <h1>Check a message, link or QR code before you act.</h1>
+      <p class="sub">Analyze suspicious payment messages, inspect links and decode QR codes locally. The system explains possible warning signs instead of giving a guaranteed scam verdict.</p>
+    </div>
+    <div class="shield">🛡️</div>
+  </section>
+
+  <section class="tabs card">
+    <button class="tab active" onclick="showTab('messageTab', this)">Message / Link</button>
+    <button class="tab" onclick="showTab('qrTab', this)">QR Code</button>
+  </section>
+
+  <section id="messageTab" class="card">
+    <label for="message">Suspicious message / payment request / link</label>
+    <textarea id="message" placeholder="Example: Your KYC will expire today. Scan this QR code and pay ₹500 immediately."></textarea>
+    <div class="actions">
+      <button id="analyzeBtn" onclick="analyze()">Analyze</button>
+      <button class="secondary" onclick="clearAll()">Clear</button>
+    </div>
+  </section>
+
+  <section id="qrTab" class="card hidden">
+    <label for="qrImage">Upload a QR code image</label>
+    <input id="qrImage" type="file" accept="image/*">
+    <p class="muted">The prototype decodes the QR locally. If it contains a UPI URI or URL, it provides additional warning indicators.</p>
+    <button id="qrBtn" onclick="analyzeQR()">Analyze QR Code</button>
+  </section>
+
+  <section id="result" class="card result hidden"></section>
+
+  <section class="card">
+    <div class="section-title">
+      <h2>Recent Analyses</h2>
+      <button class="small" onclick="loadHistory()">Refresh</button>
+    </div>
+    <div id="history">Loading...</div>
+  </section>
+
+  <p class="disclaimer">This prototype provides risk indicators and awareness guidance. It does not guarantee whether a message, link or QR code is or isn't a scam.</p>
+</main>
+
+<script>
+function showTab(id, btn) {
+  document.getElementById("messageTab").classList.toggle("hidden", id !== "messageTab");
+  document.getElementById("qrTab").classList.toggle("hidden", id !== "qrTab");
+  document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+  btn.classList.add("active");
+  document.getElementById("result").classList.add("hidden");
+}
+
+async function analyze() {
+  const text = document.getElementById("message").value.trim();
+  if (!text) { alert("Please enter a message or link first."); return; }
+  const btn = document.getElementById("analyzeBtn");
+  btn.disabled = true; btn.textContent = "Analyzing...";
+  try {
+    const response = await fetch("/api/analyze", {
+      method: "POST", headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({text})
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Analysis failed.");
+    renderResult(data, false);
+    loadHistory();
+  } catch(e) { alert(e.message); }
+  finally { btn.disabled = false; btn.textContent = "Analyze"; }
+}
+
+async function analyzeQR() {
+  const file = document.getElementById("qrImage").files[0];
+  if (!file) { alert("Please select a QR image."); return; }
+  const btn = document.getElementById("qrBtn");
+  btn.disabled = true; btn.textContent = "Decoding...";
+  const form = new FormData();
+  form.append("qr_image", file);
+  try {
+    const response = await fetch("/api/analyze-qr", {method:"POST", body:form});
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "QR analysis failed.");
+    renderResult(data, true);
+    loadHistory();
+  } catch(e) { alert(e.message); }
+  finally { btn.disabled = false; btn.textContent = "Analyze QR Code"; }
+}
+
+function renderResult(data, isQR) {
+  const result = document.getElementById("result");
+  result.classList.remove("hidden");
+  const warnings = (data.warnings || []).length
+    ? data.warnings.map(x => `<li>${escapeHtml(x)}</li>`).join("")
+    : "<li>No strong message warning indicators detected.</li>";
+  const guidance = (data.guidance || []).map(x => `<li>${escapeHtml(x)}</li>`).join("");
+  const findings = (data.findings || []).map(x => `<li>${escapeHtml(x)}</li>`).join("");
+  const links = (data.links || []).map(x => `
+    <div class="link-box">
+      <strong>${escapeHtml(x.url)}</strong>
+      <span class="pill ${x.risk_level}">${x.risk_level}</span>
+      <ul>${x.findings.map(f => `<li>${escapeHtml(f)}</li>`).join("")}</ul>
+    </div>`).join("");
+
+  result.innerHTML = `
+    <div class="result-head">
+      <div><p class="eyebrow">${isQR ? "QR ANALYSIS" : "ANALYSIS RESULT"}</p>
+      <h2>${escapeHtml(data.risk_level.toUpperCase())} RISK</h2></div>
+      <div class="risk ${data.risk_level}">${Math.round(data.risk_score * 100)}%</div>
+    </div>
+    ${isQR ? `<div class="decoded"><strong>Decoded QR content:</strong><br>${escapeHtml(data.decoded_text)}</div>` : ""}
+    <p class="explanation">${escapeHtml(data.explanation || "")}</p>
+    <div class="grid">
+      <div><h3>⚠️ Warning Signs</h3><ul>${warnings}</ul></div>
+      <div><h3>🛡️ Safety Guidance</h3><ul>${guidance}</ul></div>
+    </div>
+    ${isQR && findings ? `<div class="qr-findings"><h3>QR Findings</h3><ul>${findings}</ul></div>` : ""}
+    ${links ? `<div class="qr-findings"><h3>🔗 Link Analysis</h3>${links}</div>` : ""}
+    <p class="model">Analysis ID: ${data.analysis_id || "-"} · Local analysis only</p>
+  `;
+}
+
+async function loadHistory() {
+  const box = document.getElementById("history");
+  try {
+    const response = await fetch("/api/history");
+    const rows = await response.json();
+    if (!rows.length) { box.innerHTML = '<p class="muted">No analyses yet.</p>'; return; }
+    box.innerHTML = rows.map(r => `
+      <div class="history-row">
+        <div class="history-text">${escapeHtml(r.input_text)}</div>
+        <span class="pill ${r.risk_level}">${escapeHtml(r.risk_level)}</span>
+        <small>${escapeHtml(r.input_type)} · ${escapeHtml(r.created_at)}</small>
+      </div>`).join("");
+  } catch { box.innerHTML = '<p class="muted">Could not load history.</p>'; }
+}
+
+function clearAll() {
+  document.getElementById("message").value = "";
+  document.getElementById("result").classList.add("hidden");
+}
+function escapeHtml(v) {
+  return String(v).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+}
+loadHistory();
+</script>
+</body>
+</html>
