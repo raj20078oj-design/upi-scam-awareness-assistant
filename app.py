@@ -27,22 +27,43 @@ app = Flask(__name__)
 RISK_ORDER = {"low": 0, "medium": 1, "high": 2}
 RISK_SCORES = {"low": 0.20, "medium": 0.55, "high": 0.90}
 
+# Context-aware rules: generic words such as "payment" or "today" alone
+# must not create a high-risk result. Rules look for actionable scam patterns.
 WARNING_RULES = [
-    # Avoid treating ordinary words such as "today" or "payment received" as scams.
-    ("Urgency", [r"\burgent\b", r"\bimmediately\b", r"\bact now\b", r"\bright now\b",
-                  r"\blast chance\b", r"\bwithin\s+\d+\s+(?:minutes?|hours?)\b",
-                  r"\bexpires?\s+(?:today|soon|tonight)\b"]),
-    ("Unexpected Payment", [r"\bsend money\b", r"\btransfer money\b", r"\bpayment request\b",
-                             r"\bpay\s+(?:rs\.?|inr|₹)?\s*\d+\b", r"\bpay (?:a|the) (?:fee|charge)\b",
-                             r"\bpay now\b", r"\btransfer to (?:this|the)\b"]),
-    ("QR Code Request", [r"\bscan (?:this |the )?(?:qr|qr code)\b", r"\bqr code\b.{0,35}\bpay\b",
-                          r"\bscan\b.{0,25}\bto receive\b"]),
-    ("Suspicious Link", [r"\bclick\b.{0,30}\blink\b", r"\bopen\b.{0,30}\blink\b", r"https?://", r"\bwww\."]),
-    ("Pressure Language", [r"\baccount (?:will be )?(?:blocked|suspended)\b", r"\b(?:blocked|suspended|disconnected)\b",
-                            r"\bpenalty\b", r"\bclaim\b.{0,30}\b(?:reward|prize)\b"]),
-    ("Sensitive Information Request", [r"\b(?:share|send|enter|provide|tell|submit|reply with)\b.{0,35}\b(?:upi pin|pin|otp|password)\b",
-                                        r"\b(?:upi pin|otp|password)\b.{0,30}\b(?:to receive|to claim|to get|with us)\b"]),
-    ("Unknown/Unverified Sender", [r"\bunknown (?:number|sender)\b", r"\bunverified sender\b", r"\bstranger\b"]),
+    ("Urgency", [
+        r"\bact immediately\b", r"\bwithin\s+\d+\s+(?:minutes?|hours?)\b",
+        r"\blast chance\b", r"\bexpires?\s+(?:today|soon|tonight)\b",
+        r"\bimmediate action required\b", r"\bdo not delay\b"
+    ]),
+    ("Unexpected Payment", [
+        r"\b(?:send|transfer|pay)\s+(?:money|₹|inr|rs\.?\s*\d)",
+        r"\bpayment request\b", r"\bpay\s+now\b",
+        r"\bpay\s+(?:the|a)\s+(?:fee|charge|tax)\b",
+        r"\btransfer\s+to\s+(?:this|the)\b", r"\bcollect\s+request\b"
+    ]),
+    ("QR Code Request", [
+        r"\bscan\s+(?:this\s+|the\s+)?qr(?:\s+code)?\b",
+        r"\bscan\b.{0,35}\bto\s+receive\b",
+        r"\bscan\s+to\s+(?:get|claim|receive)\b"
+    ]),
+    ("Suspicious Link", [
+        r"https?://", r"\bwww\.", r"\bclick\s+(?:this\s+)?link\b",
+        r"\bopen\s+(?:this\s+)?link\b", r"\bverify\s+(?:your\s+)?(?:account|kyc)\s+(?:here|at)\b"
+    ]),
+    ("Pressure Language", [
+        r"\baccount\s+(?:will\s+be\s+)?(?:blocked|suspended)\b",
+        r"\b(?:account|upi)\s+will\s+be\s+deactivated\b",
+        r"\bpenalty\s+(?:will\s+be\s+)?(?:charged|applied)\b",
+        r"\bkyc\s+(?:has\s+)?expired\b", r"\bservice\s+will\s+be\s+disconnected\b"
+    ]),
+    ("Sensitive Information Request", [
+        r"\b(?:share|send|enter|provide|tell|submit|reply\s+with)\b.{0,45}\b(?:upi\s+pin|pin|otp|password|cvv)\b",
+        r"\b(?:upi\s+pin|otp|password|cvv)\b.{0,35}\b(?:to\s+receive|to\s+claim|to\s+get|with\s+us)\b"
+    ]),
+    ("Unknown/Unverified Sender", [
+        r"\bunknown\s+(?:number|sender)\b", r"\bunverified\s+sender\b",
+        r"\bstranger\s+(?:sent|contacted|messaged)\b"
+    ]),
 ]
 
 GUIDANCE = {
@@ -73,24 +94,3 @@ SHORTENERS = {
 def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-    return conn
-
-def load_model():
-    if not SKLEARN_AVAILABLE:
-        return None
-    conn = get_db()
-    rows = conn.execute("SELECT text, label FROM training_examples").fetchall()
-    conn.close()
-    if len(rows) < 4:
-        return None
-    texts = [r["text"] for r in rows]
-    labels = [r["label"] for r in rows]
-    vectorizer = TfidfVectorizer(ngram_range=(1, 2), lowercase=True)
-    X = vectorizer.fit_transform(texts)
-    model = LogisticRegression(max_iter=1000, class_weight="balanced")
-    model.fit(X, labels)
-    return vectorizer, model
-
-MODEL = load_model()
-
-def rule_warnings(text):
