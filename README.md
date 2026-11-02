@@ -1,61 +1,41 @@
-# UPI Scam Awareness Assistant
+# UScamDicomy — UPI Scam Analysis Assistant
 
-An educational Flask application that highlights possible warning signs in UPI-related messages, URLs and QR codes.
+UScamDicomy is an educational web application that reviews UPI-related messages, URLs and QR-code images for possible warning signs. It provides explainable indicators and safety guidance.
 
-## What's included
+## Features
 
-- **Message analysis:** rule-based warning signs plus a local TF-IDF / Logistic Regression text model when scikit-learn is available.
-- **URL inspection:** checks structural indicators such as HTTP, IP hosts, URL shorteners, punycode and suspicious payment/security parameter names.
-- **QR inspection:** decodes QR images locally with OpenCV and gives additional guidance for UPI payment URIs and URLs.
-- **Analysis history:** stores recent checks in SQLite.
-- **Responsive interface:** refreshed dark cybersecurity dashboard, mobile layout, message examples, drag-and-drop QR upload, inline errors and clearer result presentation.
+- Message analysis using contextual, explainable warning rules.
+- URL structure checks for indicators such as shortened links, raw IP hosts, HTTP, punycode and suspicious URL parameters.
+- QR image decoding (when OpenCV is installed) and review of decoded payment/link content.
+- Recent analysis history stored in SQLite.
+- Responsive dark interface with the official project name **UScamDicomy**.
 
-## Run locally
+## Run on Windows
 
-Python 3.10+ is recommended.
+1. Install Python 3.10 or newer.
+2. Open Command Prompt in this project folder.
+3. Run `python -m pip install -r requirements.txt`.
+4. Run `python app.py`.
+5. Open `http://127.0.0.1:5000` in your browser.
 
-```bash
-python -m venv .venv
-```
+## Deploy on Render
 
-Activate the environment:
+Create a **Python Web Service** connected to this GitHub repository. Use these settings:
 
-- Windows PowerShell: `.venv\\Scripts\\Activate.ps1`
-- Windows Command Prompt: `.venv\\Scripts\\activate.bat`
-- macOS / Linux: `source .venv/bin/activate`
+- Root Directory: leave blank
+- Build Command: `pip install -r requirements.txt`
+- Start Command: `gunicorn app:app`
 
-Install dependencies and start the app:
+The `render.yaml` file also contains these settings for Render Blueprint deployment.
 
-```bash
-python -m pip install -r requirements.txt
-python app.py
-```
+## API endpoints
 
-Open <http://127.0.0.1:5000> in your browser.
-
-## API quick reference
-
+- `GET /` — web interface
 - `GET /api/health` — service status
 - `POST /api/analyze` — JSON body: `{"text": "message to analyze"}`
-- `POST /api/analyze-qr` — multipart image field: `qr_image`
-- `GET /api/history` — latest 20 analysis records
-
-## Public deployment (Render)
-
-Build command:
-
-```bash
-pip install -r requirements.txt
-```
-
-Start command:
-
-```bash
-gunicorn app:app
-```
-
-Connect the GitHub repository to Render and create a Python Web Service. The SQLite database is suitable for a demo; Render's default filesystem may reset after a restart or redeploy. Use a managed database if persistent history is required.
+- `POST /api/analyze-qr` — multipart upload field: `qr_image`
+- `GET /api/history` — latest 20 analyses
 
 ## Important limitations
 
-This is an awareness prototype, not a bank-grade fraud detection service. A risk indicator is **not a probability** and does not prove that a message, link or QR code is safe or malicious. The app does not verify payment recipients with banks or UPI providers. Always verify the payee and amount in your official payment app. Never share your UPI PIN, OTP or password.
+This is an educational prototype, not an official bank, NPCI or government service and not a bank-grade fraud detector. Its score is a rule-based warning indicator, **not a probability** that fraud has occurred. A low score does not prove that a message, URL or QR code is safe, and a high score does not independently prove fraud. It does not contact banks or verify the identity of a payee. Always confirm the payee and amount inside your trusted payment app. Never share your UPI PIN, OTP or password.

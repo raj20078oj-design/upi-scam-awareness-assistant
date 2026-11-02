@@ -94,3 +94,369 @@ SHORTENERS = {
 def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
+    return conn
+
+def load_model():
+    if not SKLEARN_AVAILABLE:
+        return None
+    conn = get_db()
+    rows = conn.execute("SELECT text, label FROM training_examples").fetchall()
+    conn.close()
+    if len(rows) < 4:
+        return None
+    texts = [r["text"] for r in rows]
+    labels = [r["label"] for r in rows]
+    vectorizer = TfidfVectorizer(ngram_range=(1, 2), lowercase=True)
+    X = vectorizer.fit_transform(texts)
+    model = LogisticRegression(max_iter=1000, class_weight="balanced")
+    model.fit(X, labels)
+    return vectorizer, model
+
+MODEL = load_model()
+
+def rule_warnings(text):
+    """Find contextual warning patterns, ignoring common safety disclaimers."""
+    cleaned = re.sub(r"\s+", " ", str(text or "")).strip()
+    # Advice that tells the reader NOT to share secrets is not a credential request.
+    safe_advice = re.search(
+        r"\b(?:never|do\s+not|don't|dont)\s+(?:ever\s+)?(?:share|send|tell|reveal|provide)\b.{0,45}\b(?:upi\s+pin|pin|otp|password|cvv)\b",
+        cleaned, re.I
+    )
+    found = []
+    for name, patterns in WARNING_RULES:
+        if name == "Sensitive Information Request" and safe_advice:
+            continue
+        if any(re.search(pattern, cleaned, flags=re.I) for pattern in patterns):
+            found.append(name)
+    return found
+
+def ml_prediction(text):
+    if MODEL is None:
+        return "medium", 0.55
+    vectorizer, model = MODEL
+    X = vectorizer.transform([text])
+    pred = model.predict(X)[0]
+    confidence = float(max(model.predict_proba(X)[0]))
+    return pred, confidence
+
+def extract_urls(text):
+    pattern = r'(?:(?:https?|www)\S+)'
+    return [u.rstrip('.,);]}>"\'') for u in re.findall(pattern, text, flags=re.I)]
+
+def analyze_url(url):
+    raw = str(url or "").strip()
+    candidate = raw if re.match(r"^https?://", raw, re.I) else "http://" + raw
+    try:
+        parsed = urlparse(candidate)
+        host = (parsed.hostname or "").lower().rstrip(".")
+    except ValueError:
+        parsed, host = urlparse(""), ""
+    findings = []
+
+    if not host:
+        return {"url": raw, "domain": "", "risk_level": "high", "risk_score": 0.90,
+                "findings": ["The URL could not be parsed safely."]}
+
+    # HTTPS is preferable, but HTTP by itself is a caution, not proof of fraud.
+    if parsed.scheme.lower() == "http":
+        findings.append("Uses HTTP rather than encrypted HTTPS.")
+    try:
+        ipaddress.ip_address(host)
+        findings.append("Uses a raw IP address instead of a recognizable domain name.")
+    except ValueError:
+        pass
+    if host.startswith("xn--") or ".xn--" in host:
+        findings.append("Contains an internationalized/punycode hostname; check for lookalike spelling.")
+    if host in SHORTENERS or any(host.endswith("." + d) for d in SHORTENERS):
+        findings.append("Uses a URL-shortening service, so the final destination is hidden.")
+    if "@" in parsed.netloc:
+        findings.append("Contains an @ character in the URL authority, which can disguise the destination.")
+    if len(host) > 45:
+        findings.append("Has an unusually long hostname.")
+    if host.count(".") >= 4:
+        findings.append("Has many subdomain levels; verify the registered domain carefully.")
+    query_keys = {k.lower() for k in parse_qs(parsed.query).keys()}
+    if query_keys.intersection({"upi", "pin", "otp", "password", "passwd", "cvv", "card"}):
+        findings.append("Contains query parameter names associated with payment or sensitive information.")
+
+    path_text = (parsed.path + "?" + parsed.query).lower()
+    lure_terms = ("kyc", "verify", "refund", "reward", "payment", "login", "update", "account", "claim")
+    has_lure = any(term in path_text for term in lure_terms)
+    if has_lure:
+        findings.append("URL path uses account, payment, verification or reward-related wording.")
+
+    # Domain indicators are more important than a generic HTTP warning.
+    strong_count = sum(any(token in item.lower() for token in ("ip address", "shortening", "punycode", "@ character", "sensitive information")) for item in findings)
+    if strong_count >= 2 or (strong_count >= 1 and has_lure):
+        risk, score = "high", 0.78
+    elif findings:
+        risk, score = "medium", 0.38
+    else:
+        risk, score = "low", 0.08
+
+    return {
+        "url": raw,
+        "domain": host,
+        "risk_level": risk,
+        "risk_score": score,
+        "findings": findings or ["No obvious structural warning was found. This does not establish that the website is safe."]
+    }
+
+def analyze_qr_image(file_storage):
+    if not QR_AVAILABLE:
+        return {
+            "decoded": False,
+            "error": "QR analysis requires OpenCV. Install dependencies from requirements.txt."
+        }
+
+    data = file_storage.read()
+    if not data:
+        return {"decoded": False, "error": "Empty image."}
+
+    import numpy as np
+    image = cv2.imdecode(np.frombuffer(data, dtype=np.uint8), cv2.IMREAD_COLOR)
+    if image is None:
+        return {"decoded": False, "error": "Could not read the image."}
+
+    detector = cv2.QRCodeDetector()
+    decoded, points, _ = detector.detectAndDecode(image)
+
+    if not decoded:
+        return {"decoded": False, "error": "No readable QR code was found in the image."}
+
+    text = decoded.strip()
+    url_results = []
+    if re.search(r'(https?://|www\.)', text, re.I):
+        url_results = [analyze_url(u) for u in extract_urls(text)]
+
+    findings = []
+    if text.lower().startswith("upi://"):
+        findings.append("QR contains a UPI payment URI. Verify the payee name, UPI ID and amount in your payment app before approving.")
+        risk = "medium"
+    elif url_results:
+        findings.extend([f for r in url_results for f in r["findings"]])
+        risk = max((r["risk_level"] for r in url_results), key=lambda x: RISK_ORDER[x])
+    else:
+        findings.append("QR content was decoded. Do not trust it solely because it is a QR code; verify the destination or payment details.")
+        risk = "medium"
+
+    return {
+        "decoded": True,
+        "decoded_text": text,
+        "risk_level": risk,
+        "risk_score": RISK_SCORES[risk],
+        "findings": list(dict.fromkeys(findings)),
+        "links": url_results
+    }
+
+def analyze_text(text):
+    """Context-aware, explainable warning assessment (not a fraud probability).
+
+    The rule engine is primary because the bundled ML training set is very small
+    and is not calibrated for real-world fraud detection.
+    """
+    normalized = re.sub(r"\s+", " ", str(text or "")).strip()
+    warnings = rule_warnings(normalized)
+    urls = [analyze_url(u) for u in extract_urls(normalized)]
+    lower = normalized.lower()
+
+    # Start at zero. Generic mentions of payment, bank, UPI or transaction do
+    # not increase risk unless there is a concrete suspicious action/pattern.
+    score = 0
+    reasons = []
+    weights = {
+        "Urgency": 10,
+        "Unexpected Payment": 22,
+        "QR Code Request": 20,
+        "Suspicious Link": 18,
+        "Pressure Language": 22,
+        "Sensitive Information Request": 65,
+        "Unknown/Unverified Sender": 8,
+    }
+    for warning in warnings:
+        points = weights.get(warning, 0)
+        score += points
+        reasons.append({"indicator": warning, "points": points})
+
+    # Strong combinations increase concern, but repeated words do not stack.
+    if "Urgency" in warnings and ("Pressure Language" in warnings or "Unexpected Payment" in warnings or "Suspicious Link" in warnings):
+        score += 10
+        reasons.append({"indicator": "Urgency combined with a payment/account action", "points": 10})
+    if "Pressure Language" in warnings and ("Unexpected Payment" in warnings or "Suspicious Link" in warnings):
+        score += 12
+        reasons.append({"indicator": "Threat/pressure combined with payment or link", "points": 12})
+    if re.search(r"\b(?:prize|won|winner|reward|refund|cashback)\b", lower) and ("Unexpected Payment" in warnings or "Suspicious Link" in warnings):
+        score += 10
+        reasons.append({"indicator": "Reward/refund lure combined with an action", "points": 10})
+
+    # A direct request for a UPI PIN/OTP is a critical safety signal.
+    credential_request = "Sensitive Information Request" in warnings
+    if credential_request:
+        score = max(score, 85)
+
+    # URL inspection contributes evidence. Do not add a fixed 90 just because a URL exists.
+    for item in urls:
+        if item["risk_level"] == "high":
+            score += 22
+            reasons.append({"indicator": "URL structural risk", "points": 22})
+        elif item["risk_level"] == "medium":
+            score += 8
+            reasons.append({"indicator": "URL caution indicators", "points": 8})
+
+    # Contextual hardening for common UPI impersonation scenarios.
+    if re.search(r"\b(?:kyc|bank|upi|account)\b", lower) and re.search(r"\b(?:blocked|suspended|deactivated|expired)\b", lower):
+        if "Pressure Language" not in warnings:
+            score += 18
+            reasons.append({"indicator": "Account-status threat", "points": 18})
+    if re.search(r"\b(?:receive|get|accept)\s+(?:money|payment)\b", lower) and re.search(r"\b(?:pin|otp)\b", lower) and not credential_request:
+        score += 35
+        reasons.append({"indicator": "PIN/OTP mentioned in a money-receiving context", "points": 35})
+
+    score = max(0, min(100, int(round(score))))
+    if score >= 60:
+        risk = "high"
+    elif score >= 25:
+        risk = "medium"
+    else:
+        risk = "low"
+
+    # ML is shown only as a separate, uncalibrated supporting signal. It never
+    # overrides the transparent rule score.
+    try:
+        ml_risk, ml_confidence = ml_prediction(normalized)
+    except Exception:
+        ml_risk, ml_confidence = "unavailable", 0.0
+
+    if warnings:
+        explanation = "Detected warning indicators: " + ", ".join(warnings) + "."
+    elif urls:
+        explanation = "No message-level warning phrase was detected. The supplied URL was assessed separately."
+    else:
+        explanation = (
+            "No strong scam-related action or warning pattern was detected in this text. "
+            "This is not a guarantee of safety; verify payment requests in your official bank or UPI app."
+        )
+    if urls:
+        explanation += " URL inspection: " + "; ".join(
+            f"{u['domain'] or 'unparsed domain'} — {u['risk_level']} risk indicators" for u in urls
+        ) + "."
+
+    return {
+        "risk_level": risk,
+        "risk_score": round(score / 100.0, 2),
+        "warnings": warnings,
+        "explanation": explanation,
+        "guidance": GUIDANCE[risk],
+        "links": urls,
+        "score_reasons": reasons,
+        "model": "Context-aware warning rules and URL inspection; local ML is supplementary and uncalibrated",
+        "ml_prediction": ml_risk,
+        "ml_confidence": round(float(ml_confidence), 2),
+    }
+
+def save_analysis(text, result, input_type="message"):
+    conn = get_db()
+    category_name = "Social Engineering" if "Pressure Language" in result.get("warnings", []) else "Fake Payment Request"
+    row = conn.execute("SELECT category_id FROM scam_categories WHERE category_name=?", (category_name,)).fetchone()
+    category_id = row["category_id"] if row else None
+
+    cur = conn.execute("""
+        INSERT INTO analyses
+        (category_id, input_type, input_text, risk_level, risk_score, explanation)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (category_id, input_type, text, result["risk_level"], result["risk_score"], result["explanation"]))
+    analysis_id = cur.lastrowid
+
+    for warning in result.get("warnings", []):
+        row = conn.execute("SELECT warning_id FROM warning_signs WHERE warning_name=?", (warning,)).fetchone()
+        if row:
+            conn.execute("INSERT OR IGNORE INTO analysis_warning_signs(analysis_id, warning_id) VALUES (?,?)",
+                         (analysis_id, row["warning_id"]))
+
+    for i, item in enumerate(result["guidance"], start=1):
+        conn.execute("INSERT INTO safety_guidance(analysis_id, guidance_text, priority) VALUES (?,?,?)",
+                     (analysis_id, item, i))
+
+    for link in result.get("links", []):
+        conn.execute("""
+            INSERT INTO link_analysis(analysis_id, url, risk_level, risk_score, findings)
+            VALUES (?, ?, ?, ?, ?)
+        """, (analysis_id, link["url"], link["risk_level"], link["risk_score"], json.dumps(link["findings"])))
+
+    conn.commit()
+    conn.close()
+    return analysis_id
+
+def save_qr_analysis(decoded_text, result, analysis_id=None):
+    conn = get_db()
+    conn.execute("""
+        INSERT INTO qr_analysis(analysis_id, decoded_text, risk_level, risk_score, findings)
+        VALUES (?, ?, ?, ?, ?)
+    """, (analysis_id, decoded_text, result["risk_level"], result["risk_score"], json.dumps(result["findings"])))
+    conn.commit()
+    conn.close()
+
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+@app.route("/api/analyze", methods=["POST"])
+def api_analyze():
+    data = request.get_json(silent=True) or {}
+    text = str(data.get("text", "") or "").strip()
+    if not text:
+        return jsonify({"error": "Please enter a message to analyze."}), 400
+    result = analyze_text(text)
+    analysis_id = save_analysis(text, result, "message")
+    result["analysis_id"] = analysis_id
+    result["created_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    return jsonify(result)
+
+@app.route("/api/analyze-qr", methods=["POST"])
+def api_analyze_qr():
+    file = request.files.get("qr_image")
+    if not file:
+        return jsonify({"error": "Please upload a QR image."}), 400
+
+    result = analyze_qr_image(file)
+    if not result.get("decoded"):
+        return jsonify(result), 400
+
+    # Store QR as an analysis record too.
+    text = result["decoded_text"]
+    warnings = []
+    if text.lower().startswith("upi://"):
+        warnings.append("QR Code Request")
+    if result.get("links"):
+        warnings.append("Suspicious Link" if any(x["risk_level"] != "low" for x in result["links"]) else "QR Code Request")
+
+    wrapper = {
+        "risk_level": result["risk_level"],
+        "risk_score": result["risk_score"],
+        "warnings": list(dict.fromkeys(warnings)),
+        "explanation": "QR code decoded successfully. " + " ".join(result["findings"]),
+        "guidance": GUIDANCE[result["risk_level"]],
+        "links": result.get("links", [])
+    }
+    analysis_id = save_analysis(text, wrapper, "qr_request")
+    save_qr_analysis(text, result, analysis_id)
+    result["analysis_id"] = analysis_id
+    result["created_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    return jsonify(result)
+
+@app.route("/api/history", methods=["GET"])
+def history():
+    conn = get_db()
+    rows = conn.execute("""
+        SELECT analysis_id, input_text, risk_level, risk_score, input_type, created_at
+        FROM analyses ORDER BY analysis_id DESC LIMIT 20
+    """).fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in rows])
+
+@app.route("/api/health")
+def health():
+    return jsonify({"status": "online", "app": "UScamDicomy", "qr_analysis": QR_AVAILABLE})
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=False)
