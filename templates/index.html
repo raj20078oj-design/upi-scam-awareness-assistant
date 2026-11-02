@@ -3,164 +3,181 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-  <meta name="google-site-verification" content="JlF2cUOWtlOuYcML93CbUydyfteic1Jr8I2RP-1AMus" />
-
-  <title>UPI Scam Awareness Assistant</title>
-  <link rel="stylesheet" href="/static/style.css">
+  <meta name="theme-color" content="#0b1220">
+  <meta name="description" content="An educational assistant that helps identify warning signs in UPI payment messages, links and QR codes.">
+  <title>UPI Shield | Scam Awareness Assistant</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-<header class="topbar">
-  <div>
-    <div class="brand">UPI Scam Awareness Assistant</div>
-    <div class="tagline">Before You Pay, Understand the Warning Signs.</div>
-  </div>
-  <span class="badge">CYBERSECURITY</span>
-</header>
+  <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
+  <header class="topbar">
+    <a class="brand" href="#home" aria-label="UPI Shield home">
+      <span class="brand-mark"> <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2.8 27 7v8.2c0 7-4.7 11.6-11 14-6.3-2.4-11-7-11-14V7l11-4.2Z"/><path d="m10.5 16.2 3.6 3.5 7.6-8"/></svg></span>
+      <span><strong>UPI<span>Shield</span></strong><small>SCAM AWARENESS ASSISTANT</small></span>
+    </a>
+    <nav class="nav-links" aria-label="Main navigation">
+      <a href="#analyzer">Analyzer</a><a href="#learn">Stay Safe</a><a href="#history-section">History</a>
+    </nav>
+    <span class="secure-label"><i></i> Local analysis</span>
+  </header>
 
-<main class="container">
-  <section class="hero">
-    <div>
-      <p class="eyebrow">AI-POWERED AWARENESS</p>
-      <h1>Check a message, link or QR code before you act.</h1>
-      <p class="sub">Analyze suspicious payment messages, inspect links and decode QR codes locally. The system explains possible warning signs instead of giving a guaranteed scam verdict.</p>
-    </div>
-    <div class="shield">🛡️</div>
-  </section>
+  <main id="home" class="page-shell">
+    <section class="hero">
+      <div class="hero-copy">
+        <div class="eyebrow"><span class="sparkle">✦</span> YOUR DIGITAL PAYMENT SAFETY COMPANION</div>
+        <h1>Pause. Check.<br><span>Pay with confidence.</span></h1>
+        <p>Spot warning signs in suspicious UPI messages, payment links and QR codes before you take action.</p>
+        <a class="hero-cta" href="#analyzer">Check a message <span>↓</span></a>
+        <div class="hero-trust"><span>✓ No payment details needed</span><span>✓ Educational risk indicators</span></div>
+      </div>
+      <div class="hero-art" aria-hidden="true">
+        <div class="orbit orbit-a"></div><div class="orbit orbit-b"></div>
+        <div class="shield-glow"><svg viewBox="0 0 160 180"><path class="shield-outline" d="M80 8 143 32v48c0 43-27 72-63 91C44 152 17 123 17 80V32L80 8Z"/><path class="shield-check" d="m49 88 20 20 43-47"/></svg></div>
+        <div class="float-card card-top"><span class="float-icon green">✓</span><span><b>Stay alert</b><small>Verify every request</small></span></div>
+        <div class="float-card card-bottom"><span class="float-icon violet">⌁</span><span><b>Smart analysis</b><small>Message · Link · QR</small></span></div>
+      </div>
+    </section>
 
-  <section class="tabs card">
-    <button class="tab active" onclick="showTab('messageTab', this)">Message / Link</button>
-    <button class="tab" onclick="showTab('qrTab', this)">QR Code</button>
-  </section>
+    <section class="stats-row" aria-label="Project capabilities">
+      <article class="stat-card"><span class="stat-icon">⌕</span><div><strong>Message scan</strong><small>Suspicious wording</small></div></article>
+      <article class="stat-card"><span class="stat-icon">↗</span><div><strong>Link check</strong><small>URL warning signs</small></div></article>
+      <article class="stat-card"><span class="stat-icon">▦</span><div><strong>QR inspection</strong><small>Decode and review</small></div></article>
+      <article class="stat-card"><span class="stat-icon">◷</span><div><strong id="analysisCount">—</strong><small>Recent checks saved</small></div></article>
+    </section>
 
-  <section id="messageTab" class="card">
-    <label for="message">Suspicious message / payment request / link</label>
-    <textarea id="message" placeholder="Example: Your KYC will expire today. Scan this QR code and pay ₹500 immediately."></textarea>
-    <div class="actions">
-      <button id="analyzeBtn" onclick="analyze()">Analyze</button>
-      <button class="secondary" onclick="clearAll()">Clear</button>
-    </div>
-  </section>
+    <section id="analyzer" class="workspace-section">
+      <div class="section-heading"><div><div class="eyebrow">THE SAFETY CHECK</div><h2>What would you like to check?</h2><p>Choose an input type and review the indicators found by the assistant.</p></div><span class="section-step">01 <span>/ 03</span></span></div>
+      <div class="analyzer-layout">
+        <div class="analyzer-main panel">
+          <div class="tabs" role="tablist" aria-label="Analysis type">
+            <button class="tab active" id="messageTabBtn" role="tab" aria-selected="true" aria-controls="messageTab" onclick="showTab('messageTab', this)"><span>✉</span> Message / Link</button>
+            <button class="tab" id="qrTabBtn" role="tab" aria-selected="false" aria-controls="qrTab" onclick="showTab('qrTab', this)"><span>▦</span> QR Code</button>
+          </div>
+          <section id="messageTab" class="tab-panel" role="tabpanel" aria-labelledby="messageTabBtn">
+            <label for="message">Paste the message or payment link</label>
+            <p class="field-hint">Do not include your UPI PIN, OTP, password or other private information.</p>
+            <textarea id="message" maxlength="10000" placeholder="Example: Your bank account will be blocked today. Click this link to complete KYC immediately..."></textarea>
+            <div class="textarea-meta"><span>Paste the complete message for better context</span><span id="charCount">0 / 10,000</span></div>
+            <div class="sample-row"><span>Try an example:</span><button type="button" class="sample-chip" onclick="useSample('urgent')">Urgent KYC message</button><button type="button" class="sample-chip" onclick="useSample('reward')">Prize / reward message</button></div>
+            <div class="form-actions"><button class="primary-btn" id="analyzeBtn" onclick="analyze()"><span>Analyze safely</span><b>→</b></button><button class="text-btn" onclick="clearAll()">Clear text</button></div>
+          </section>
+          <section id="qrTab" class="tab-panel hidden" role="tabpanel" aria-labelledby="qrTabBtn">
+            <label for="qrImage">Upload a QR code image</label>
+            <p class="field-hint">Choose a clear PNG, JPG or JPEG image containing one QR code.</p>
+            <label class="upload-zone" for="qrImage" id="uploadZone"><input id="qrImage" type="file" accept="image/png,image/jpeg,image/jpg,image/webp"><span class="upload-symbol">↑</span><strong id="uploadTitle">Drop your QR image here</strong><span id="uploadSub">or click to browse · Max 5 MB</span></label>
+            <div class="form-actions"><button class="primary-btn" id="qrBtn" onclick="analyzeQR()"><span>Analyze QR code</span><b>→</b></button><button class="text-btn" onclick="clearQR()">Remove image</button></div>
+          </section>
+          <div id="errorMessage" class="inline-error hidden" role="alert"></div>
+        </div>
+        <aside class="side-panel">
+          <div class="side-card privacy-card"><div class="side-card-icon">♧</div><h3>Your privacy matters</h3><p>Message and QR checks run on this app's server. Avoid entering sensitive credentials or personal banking information.</p><span class="mini-status"><i></i> No UPI PIN required</span></div>
+          <div class="side-card reminder-card"><div class="reminder-title"><span>✦</span> QUICK REMINDER</div><p><strong>You never need to enter your UPI PIN to receive money.</strong></p><p>Be cautious if someone asks you to scan a QR code or approve a collect request to receive a payment.</p></div>
+        </aside>
+      </div>
+    </section>
 
-  <section id="qrTab" class="card hidden">
-    <label for="qrImage">Upload a QR code image</label>
-    <input id="qrImage" type="file" accept="image/*">
-    <p class="muted">The prototype decodes the QR locally. If it contains a UPI URI or URL, it provides additional warning indicators.</p>
-    <button id="qrBtn" onclick="analyzeQR()">Analyze QR Code</button>
-  </section>
+    <section id="result" class="panel result-panel hidden" aria-live="polite"></section>
 
-  <section id="result" class="card result hidden"></section>
+    <section id="learn" class="learn-section">
+      <div class="section-heading"><div><div class="eyebrow">KNOW THE RED FLAGS</div><h2>Small checks. Safer payments.</h2><p>Remember these simple habits whenever you use digital payments.</p></div><span class="section-step">02 <span>/ 03</span></span></div>
+      <div class="safety-grid">
+        <article class="safety-card"><span class="safety-icon red-icon">!</span><h3>Unexpected urgency</h3><p>Scammers may pressure you with threats, deadlines or account-blocking messages.</p></article>
+        <article class="safety-card"><span class="safety-icon blue-icon">⌁</span><h3>Unknown links</h3><p>Check the website domain independently. A familiar logo does not prove a page is genuine.</p></article>
+        <article class="safety-card"><span class="safety-icon purple-icon">▦</span><h3>QR code requests</h3><p>Review the payee and amount in your payment app before approving anything.</p></article>
+        <article class="safety-card"><span class="safety-icon green-icon">♙</span><h3>Secret credentials</h3><p>Never share your UPI PIN, OTP or password, even with someone claiming to be bank staff.</p></article>
+      </div>
+      <div class="help-banner"><div><span class="eyebrow">IF YOU SUSPECT A CYBER FRAUD</span><h3>Act quickly. Report it through official channels.</h3><p>In India, call <strong>1930</strong> for the cyber financial fraud helpline or visit the National Cyber Crime Reporting Portal.</p></div><a href="https://cybercrime.gov.in/" target="_blank" rel="noopener noreferrer">Official cybercrime portal ↗</a></div>
+    </section>
 
-  <section class="card">
-    <div class="section-title">
-      <h2>Recent Analyses</h2>
-      <button class="small" onclick="loadHistory()">Refresh</button>
-    </div>
-    <div id="history">Loading...</div>
-  </section>
+    <section id="history-section" class="history-section">
+      <div class="section-heading"><div><div class="eyebrow">YOUR ACTIVITY</div><h2>Recent analyses</h2><p>Your latest checks saved in this app's local database.</p></div><span class="section-step">03 <span>/ 03</span></span></div>
+      <div class="panel history-panel"><div class="history-toolbar"><div><strong>Analysis history</strong><span>Latest 20 records</span></div><button class="refresh-btn" onclick="loadHistory()">↻ Refresh</button></div><div id="history" class="history-list"><div class="history-empty">Loading your recent checks...</div></div></div>
+    </section>
 
-  <p class="disclaimer">This prototype provides risk indicators and awareness guidance. It does not guarantee whether a message, link or QR code is or isn't a scam.</p>
-</main>
+    <footer class="footer"><a class="footer-brand" href="#home">UPI<span>Shield</span></a><p>Built for digital payment awareness. Stay alert, stay informed.</p><small>Educational prototype · Results are indicators, not a guarantee that content is safe or malicious.</small></footer>
+  </main>
 
 <script>
+const samples = {
+  urgent: 'URGENT: Your bank account will be blocked today. Complete KYC immediately using this link: http://example.com/kyc-update',
+  reward: 'Congratulations! You have won a cash reward. Pay a small processing fee now to claim your prize. Share your OTP to verify.'
+};
 function showTab(id, btn) {
-  document.getElementById("messageTab").classList.toggle("hidden", id !== "messageTab");
-  document.getElementById("qrTab").classList.toggle("hidden", id !== "qrTab");
-  document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
-  btn.classList.add("active");
-  document.getElementById("result").classList.add("hidden");
+  document.getElementById('messageTab').classList.toggle('hidden', id !== 'messageTab');
+  document.getElementById('qrTab').classList.toggle('hidden', id !== 'qrTab');
+  document.querySelectorAll('.tab').forEach(x => { x.classList.remove('active'); x.setAttribute('aria-selected', 'false'); });
+  btn.classList.add('active'); btn.setAttribute('aria-selected', 'true');
+  hideError();
 }
-
+function useSample(key) { const box = document.getElementById('message'); box.value = samples[key]; updateCharCount(); box.focus(); }
+function updateCharCount() { const box = document.getElementById('message'); document.getElementById('charCount').textContent = `${box.value.length.toLocaleString()} / 10,000`; }
+document.getElementById('message').addEventListener('input', updateCharCount);
+function showError(message) { const box = document.getElementById('errorMessage'); box.textContent = message; box.classList.remove('hidden'); }
+function hideError() { document.getElementById('errorMessage').classList.add('hidden'); }
+function setLoading(button, loading, label) { button.disabled = loading; button.querySelector('span').textContent = loading ? label : button.dataset.label; }
+document.getElementById('analyzeBtn').dataset.label = 'Analyze safely';
+document.getElementById('qrBtn').dataset.label = 'Analyze QR code';
 async function analyze() {
-  const text = document.getElementById("message").value.trim();
-  if (!text) { alert("Please enter a message or link first."); return; }
-  const btn = document.getElementById("analyzeBtn");
-  btn.disabled = true; btn.textContent = "Analyzing...";
+  const text = document.getElementById('message').value.trim();
+  hideError();
+  if (!text) { showError('Please paste a message or link before starting the analysis.'); return; }
+  const btn = document.getElementById('analyzeBtn'); setLoading(btn, true, 'Analyzing...');
   try {
-    const response = await fetch("/api/analyze", {
-      method: "POST", headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({text})
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "Analysis failed.");
-    renderResult(data, false);
-    loadHistory();
-  } catch(e) { alert(e.message); }
-  finally { btn.disabled = false; btn.textContent = "Analyze"; }
+    const response = await fetch('/api/analyze', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({text}) });
+    const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Analysis failed. Please try again.');
+    renderResult(data, false); loadHistory();
+  } catch (e) { showError(e.message || 'Could not connect to the analysis service.'); }
+  finally { setLoading(btn, false); }
 }
-
 async function analyzeQR() {
-  const file = document.getElementById("qrImage").files[0];
-  if (!file) { alert("Please select a QR image."); return; }
-  const btn = document.getElementById("qrBtn");
-  btn.disabled = true; btn.textContent = "Decoding...";
-  const form = new FormData();
-  form.append("qr_image", file);
+  const file = document.getElementById('qrImage').files[0]; hideError();
+  if (!file) { showError('Please choose a QR code image first.'); return; }
+  if (file.size > 5 * 1024 * 1024) { showError('The image is larger than 5 MB. Please choose a smaller image.'); return; }
+  const btn = document.getElementById('qrBtn'); setLoading(btn, true, 'Reading QR...');
+  const form = new FormData(); form.append('qr_image', file);
   try {
-    const response = await fetch("/api/analyze-qr", {method:"POST", body:form});
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "QR analysis failed.");
-    renderResult(data, true);
-    loadHistory();
-  } catch(e) { alert(e.message); }
-  finally { btn.disabled = false; btn.textContent = "Analyze QR Code"; }
+    const response = await fetch('/api/analyze-qr', {method:'POST', body:form});
+    const data = await response.json(); if (!response.ok) throw new Error(data.error || 'QR analysis failed.');
+    renderResult(data, true); loadHistory();
+  } catch (e) { showError(e.message || 'Could not analyze this QR image.'); }
+  finally { setLoading(btn, false); }
 }
-
+function riskLabel(level) { return ({high:'High risk indicators',medium:'Some warning signs',low:'Fewer warning signs'})[level] || 'Review required'; }
 function renderResult(data, isQR) {
-  const result = document.getElementById("result");
-  result.classList.remove("hidden");
-  const warnings = (data.warnings || []).length
-    ? data.warnings.map(x => `<li>${escapeHtml(x)}</li>`).join("")
-    : "<li>No strong message warning indicators detected.</li>";
-  const guidance = (data.guidance || []).map(x => `<li>${escapeHtml(x)}</li>`).join("");
-  const findings = (data.findings || []).map(x => `<li>${escapeHtml(x)}</li>`).join("");
-  const links = (data.links || []).map(x => `
-    <div class="link-box">
-      <strong>${escapeHtml(x.url)}</strong>
-      <span class="pill ${x.risk_level}">${x.risk_level}</span>
-      <ul>${x.findings.map(f => `<li>${escapeHtml(f)}</li>`).join("")}</ul>
-    </div>`).join("");
-
-  result.innerHTML = `
-    <div class="result-head">
-      <div><p class="eyebrow">${isQR ? "QR ANALYSIS" : "ANALYSIS RESULT"}</p>
-      <h2>${escapeHtml(data.risk_level.toUpperCase())} RISK</h2></div>
-      <div class="risk ${data.risk_level}">${Math.round(data.risk_score * 100)}%</div>
-    </div>
-    ${isQR ? `<div class="decoded"><strong>Decoded QR content:</strong><br>${escapeHtml(data.decoded_text)}</div>` : ""}
-    <p class="explanation">${escapeHtml(data.explanation || "")}</p>
-    <div class="grid">
-      <div><h3>⚠️ Warning Signs</h3><ul>${warnings}</ul></div>
-      <div><h3>🛡️ Safety Guidance</h3><ul>${guidance}</ul></div>
-    </div>
-    ${isQR && findings ? `<div class="qr-findings"><h3>QR Findings</h3><ul>${findings}</ul></div>` : ""}
-    ${links ? `<div class="qr-findings"><h3>🔗 Link Analysis</h3>${links}</div>` : ""}
-    <p class="model">Analysis ID: ${data.analysis_id || "-"} · Local analysis only</p>
-  `;
+  const result = document.getElementById('result'); result.classList.remove('hidden');
+  const level = ['low','medium','high'].includes(data.risk_level) ? data.risk_level : 'medium';
+  const warnings = (data.warnings || []).length ? data.warnings.map(x => `<li>${escapeHtml(x)}</li>`).join('') : '<li>No strong message warning indicators were detected.</li>';
+  const guidance = (data.guidance || []).map(x => `<li>${escapeHtml(x)}</li>`).join('');
+  const findings = (data.findings || []).map(x => `<li>${escapeHtml(x)}</li>`).join('');
+  const links = (data.links || []).map(x => `<div class="link-result"><div class="link-result-head"><strong>${escapeHtml(x.domain || x.url)}</strong><span class="risk-pill ${escapeHtml(x.risk_level)}">${escapeHtml(x.risk_level)} risk</span></div><p>${escapeHtml(x.url)}</p><ul>${(x.findings || []).map(f => `<li>${escapeHtml(f)}</li>`).join('')}</ul></div>`).join('');
+  const score = Math.max(0, Math.min(100, Math.round(Number(data.risk_score || 0) * 100)));
+  result.innerHTML = `<div class="result-topline"><div><div class="eyebrow">${isQR ? 'QR CODE ANALYSIS' : 'MESSAGE ANALYSIS'}</div><h2>Analysis complete</h2><p>${escapeHtml(data.explanation || 'Review the findings and safety guidance below.')}</p></div><span class="result-check">✓</span></div>
+    <div class="risk-summary ${level}"><div><span class="risk-kicker">ASSESSMENT</span><h3>${escapeHtml(riskLabel(level))}</h3><p>This is a rule/model-based indicator, not a probability or a final verdict.</p></div><div class="score-ring" style="--score:${score}%"><div><strong>${score}</strong><small>indicator</small></div></div></div>
+    ${isQR ? `<div class="decoded-box"><strong>Decoded QR content</strong><p>${escapeHtml(data.decoded_text || '')}</p></div>` : ''}
+    <div class="result-columns"><div class="result-detail"><h3><span class="detail-dot warning-dot"></span> Warning signs</h3><ul>${warnings}</ul>${isQR && findings ? `<h3 class="sub-detail-title">QR findings</h3><ul>${findings}</ul>` : ''}</div><div class="result-detail"><h3><span class="detail-dot safe-dot"></span> What to do next</h3><ul>${guidance || '<li>Verify the request independently before taking action.</li><li>Never share your UPI PIN or OTP.</li>'}</ul></div></div>
+    ${links ? `<div class="link-analysis"><h3>Link inspection</h3>${links}</div>` : ''}<div class="result-foot"><span>Analysis ID: ${escapeHtml(data.analysis_id || '-')}</span><span>Local model + warning-sign rules</span></div>`;
+  result.scrollIntoView({behavior:'smooth', block:'start'});
 }
-
 async function loadHistory() {
-  const box = document.getElementById("history");
+  const box = document.getElementById('history');
   try {
-    const response = await fetch("/api/history");
-    const rows = await response.json();
-    if (!rows.length) { box.innerHTML = '<p class="muted">No analyses yet.</p>'; return; }
-    box.innerHTML = rows.map(r => `
-      <div class="history-row">
-        <div class="history-text">${escapeHtml(r.input_text)}</div>
-        <span class="pill ${r.risk_level}">${escapeHtml(r.risk_level)}</span>
-        <small>${escapeHtml(r.input_type)} · ${escapeHtml(r.created_at)}</small>
-      </div>`).join("");
-  } catch { box.innerHTML = '<p class="muted">Could not load history.</p>'; }
+    const response = await fetch('/api/history'); if (!response.ok) throw new Error('History unavailable');
+    const rows = await response.json(); document.getElementById('analysisCount').textContent = rows.length.toString().padStart(2, '0');
+    if (!rows.length) { box.innerHTML = '<div class="history-empty">No analyses yet. Your completed checks will appear here.</div>'; return; }
+    box.innerHTML = rows.map(r => `<article class="history-row"><span class="history-type">${r.input_type === 'qr_request' ? '▦' : '✉'}</span><div class="history-content"><strong>${escapeHtml(r.input_text)}</strong><small>${escapeHtml(r.input_type.replace('_',' '))} · ${escapeHtml(r.created_at)}</small></div><span class="risk-pill ${escapeHtml(r.risk_level)}">${escapeHtml(r.risk_level)}</span></article>`).join('');
+  } catch { document.getElementById('analysisCount').textContent = '—'; box.innerHTML = '<div class="history-empty">Could not load history right now.</div>'; }
 }
-
-function clearAll() {
-  document.getElementById("message").value = "";
-  document.getElementById("result").classList.add("hidden");
-}
-function escapeHtml(v) {
-  return String(v).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
-}
+function clearAll() { document.getElementById('message').value = ''; updateCharCount(); hideError(); document.getElementById('result').classList.add('hidden'); }
+function clearQR() { document.getElementById('qrImage').value = ''; document.getElementById('uploadTitle').textContent = 'Drop your QR image here'; document.getElementById('uploadSub').textContent = 'or click to browse · Max 5 MB'; hideError(); }
+function escapeHtml(v) { return String(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c])); }
+document.getElementById('qrImage').addEventListener('change', function() { const file = this.files[0]; if (file) { document.getElementById('uploadTitle').textContent = file.name; document.getElementById('uploadSub').textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB · Ready to analyze`; } });
+const uploadZone = document.getElementById('uploadZone');
+['dragenter','dragover'].forEach(name => uploadZone.addEventListener(name, e => { e.preventDefault(); uploadZone.classList.add('dragging'); }));
+['dragleave','drop'].forEach(name => uploadZone.addEventListener(name, e => { e.preventDefault(); uploadZone.classList.remove('dragging'); }));
+uploadZone.addEventListener('drop', e => { const file = e.dataTransfer.files[0]; if (file && file.type.startsWith('image/')) { const input = document.getElementById('qrImage'); const transfer = new DataTransfer(); transfer.items.add(file); input.files = transfer.files; input.dispatchEvent(new Event('change')); } });
 loadHistory();
 </script>
 </body>
